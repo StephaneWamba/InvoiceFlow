@@ -15,22 +15,79 @@ Automated document matching and three-way reconciliation for Purchase Orders, In
 - **Backend**: FastAPI (Python), PostgreSQL, Azure Form Recognizer, PyMuPDF
 - **Frontend**: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui
 - **Infrastructure**: Docker, MinIO (S3-compatible), PostgreSQL
-- **Package Manager**: `uv`
+- **Package Manager**: `uv` (backend), `npm` (frontend)
 
 ## Quick Start
 
-```bash
-# Start all services
-docker-compose up
+### Prerequisites
 
-# Backend: http://localhost:8000
-# Frontend: http://localhost:3000
-# MinIO: http://localhost:9000
+- Docker and Docker Compose
+- Azure Form Recognizer account (for document extraction)
+
+### Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/StephaneWamba/InvoiceFlow.git
+   cd InvoiceFlow
+   ```
+
+2. **Configure environment**
+   ```bash
+   make setup
+   # Edit backend/.env with your Azure Form Recognizer credentials
+   ```
+
+3. **Start services**
+   ```bash
+   make build
+   make up
+   ```
+
+4. **Run migrations**
+   ```bash
+   make migrate
+   ```
+
+### Services
+
+- **Backend API**: http://localhost:8000
+- **Frontend**: http://localhost:3000
+- **MinIO Console**: http://localhost:9001 (minioadmin/minioadmin)
+- **PostgreSQL**: localhost:5432
+
+### Development
+
+```bash
+# View logs
+make logs
+
+# Stop services
+make down
+
+# Clean everything
+make clean
 ```
 
-## Development
+## Project Structure
 
-See `private/roadmap.md` for detailed development plan.
+```
+InvoiceFlow/
+├── backend/          # FastAPI backend
+│   ├── src/
+│   │   ├── api/      # API routes
+│   │   ├── core/     # Config, database
+│   │   └── models/   # SQLAlchemy models
+│   ├── alembic/      # Database migrations
+│   └── Dockerfile
+├── frontend/         # Next.js frontend
+│   ├── src/
+│   │   └── app/      # Next.js app directory
+│   └── Dockerfile
+├── private/          # Project documentation
+├── docker-compose.yml
+└── Makefile
+```
 
 ## Documentation
 
@@ -38,4 +95,8 @@ All project documentation is in the `private/` folder:
 - `document-matching-reconciliation.md` - Project specification
 - `tech-stack-recommendation.md` - Technology choices
 - `roadmap.md` - Development roadmap
+
+## License
+
+MIT
 

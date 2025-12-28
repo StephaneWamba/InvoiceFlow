@@ -3,54 +3,65 @@
 ## Backend
 
 **Framework**: FastAPI (Python)
+
 - Fast async processing for document uploads
 - Built-in OpenAPI docs
 - Easy PDF/DOCX handling
 
 **Package Manager**: `uv`
+
 - Fast dependency resolution and installation
 - Optimized for Docker builds
 
 **Document Intelligence**:
+
 - **Primary**: Azure Form Recognizer (pre-built invoice/PO models)
 - Pre-trained models for invoices, purchase orders, receipts
 
 **Database**: PostgreSQL
+
 - Workspace storage, extracted data, matching results
 - Production-ready from start
 
 **PDF Processing**:
+
 - **PyMuPDF** (fitz) for text extraction and PDF manipulation
 - `python-docx` for DOCX
 - `reportlab` for PDF report generation
 
 **Matching Engine**: Pure Python
+
 - Fuzzy matching for PO numbers/vendor names (rapidfuzz)
 - Line item comparison logic
 
 **File Storage**: S3/MinIO
+
 - Production-ready object storage
 - Temporary document storage per workspace
 
 ## Frontend
 
 **Framework**: Next.js 14+ (React)
+
 - Server components for faster loads
 - File upload with progress
 - Real-time status updates
 
 **UI Library**: shadcn/ui + Tailwind CSS
+
 - Table components for comparisons
 - Drag & drop file upload
 - Color-coded status indicators
 
 **State**: Zustand or React Query
+
 - Workspace management
 - Document processing state
 
 ## Infrastructure
 
 **Deployment**: Docker Compose
+
 - Optimized Dockerfiles for faster builds
 - Multi-stage builds with layer caching
 - Backend + Frontend + PostgreSQL + MinIO containers
@@ -58,15 +69,18 @@
 ## Test Data Sources
 
 1. **Synthetic PDF Generation**:
+
    - Generate realistic PO/Invoice/Delivery Note PDFs using `reportlab`
    - Create test cases with various mismatch scenarios
 
 2. **Public Datasets**:
+
    - **Kaggle**: Search "invoice dataset" or "purchase order dataset"
    - **GitHub**: `invoice-parser` repos often have sample PDFs
    - **DocBank**: Document understanding datasets
 
 3. **Template Generators**:
+
    - Use invoice/PO templates from:
      - Invoice template websites (export as PDF)
      - Accounting software demos (QuickBooks, Xero trial accounts)
@@ -93,4 +107,3 @@
 8. **Concurrent Processing**: Handle multiple document uploads simultaneously
 9. **Extraction Confidence**: Show confidence scores for extracted fields
 10. **Manual Override**: Allow users to correct extracted data before matching
-
