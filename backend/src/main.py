@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.core.config import settings
-from src.api import workspaces, documents, matching, reports
+from src.api import workspaces, documents, matching, reports, extracted_data
 
 app = FastAPI(
     title="InvoiceFlow API",
@@ -22,6 +22,7 @@ app.add_middleware(
 # Include routers
 app.include_router(workspaces.router, prefix="/api/workspaces", tags=["workspaces"])
 app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
+app.include_router(extracted_data.router, prefix="/api/extracted-data", tags=["extracted-data"])
 app.include_router(matching.router, prefix="/api/matching", tags=["matching"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 

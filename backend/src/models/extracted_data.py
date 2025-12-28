@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Numeric
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, JSON, Numeric
 from sqlalchemy.orm import relationship
 import uuid
 
