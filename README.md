@@ -49,12 +49,20 @@ Automated document matching and three-way reconciliation for Purchase Orders, In
    make migrate
    ```
 
+### Ports
+
+- **Backend API**: 8001
+- **Frontend**: 3001
+- **PostgreSQL**: 5433
+- **MinIO API**: 9002
+- **MinIO Console**: 9003
+
 ### Services
 
-- **Backend API**: http://localhost:8000
-- **Frontend**: http://localhost:3000
-- **MinIO Console**: http://localhost:9001 (minioadmin/minioadmin)
-- **PostgreSQL**: localhost:5432
+- **Backend API**: http://localhost:8001
+- **Frontend**: http://localhost:3001
+- **MinIO Console**: http://localhost:9003 (minioadmin/minioadmin)
+- **PostgreSQL**: localhost:5433
 
 ### Development
 
