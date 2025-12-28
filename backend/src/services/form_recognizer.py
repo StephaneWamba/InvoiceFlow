@@ -90,23 +90,70 @@ class FormRecognizerService:
                                     "line_total": None,
                                 }
 
-                                if "Description" in item.value:
-                                    line_item["description"] = item.value["Description"].value
+                                # Handle both dict-like and DocumentField objects
+                                item_value = item.value if hasattr(item, "value") else item
+                                
+                                # Description
+                                if isinstance(item_value, dict) and "Description" in item_value:
+                                    desc_field = item_value["Description"]
+                                    line_item["description"] = desc_field.value if hasattr(desc_field, "value") else desc_field
+                                elif hasattr(item_value, "Description"):
+                                    desc_field = item_value.Description
+                                    line_item["description"] = desc_field.value if hasattr(desc_field, "value") else desc_field
 
-                                if "Quantity" in item.value:
-                                    qty = item.value["Quantity"].value
+                                # Quantity
+                                if isinstance(item_value, dict) and "Quantity" in item_value:
+                                    qty_field = item_value["Quantity"]
+                                    qty = qty_field.value if hasattr(qty_field, "value") else qty_field
                                     if qty:
-                                        line_item["quantity"] = float(qty)
+                                        try:
+                                            line_item["quantity"] = float(qty)
+                                        except (ValueError, TypeError):
+                                            pass
+                                elif hasattr(item_value, "Quantity"):
+                                    qty_field = item_value.Quantity
+                                    qty = qty_field.value if hasattr(qty_field, "value") else qty_field
+                                    if qty:
+                                        try:
+                                            line_item["quantity"] = float(qty)
+                                        except (ValueError, TypeError):
+                                            pass
 
-                                if "UnitPrice" in item.value:
-                                    price = item.value["UnitPrice"].value
+                                # Unit Price
+                                if isinstance(item_value, dict) and "UnitPrice" in item_value:
+                                    price_field = item_value["UnitPrice"]
+                                    price = price_field.value if hasattr(price_field, "value") else price_field
                                     if price:
-                                        line_item["unit_price"] = float(price.amount)
+                                        try:
+                                            line_item["unit_price"] = float(price.amount) if hasattr(price, "amount") else float(price)
+                                        except (ValueError, TypeError, AttributeError):
+                                            pass
+                                elif hasattr(item_value, "UnitPrice"):
+                                    price_field = item_value.UnitPrice
+                                    price = price_field.value if hasattr(price_field, "value") else price_field
+                                    if price:
+                                        try:
+                                            line_item["unit_price"] = float(price.amount) if hasattr(price, "amount") else float(price)
+                                        except (ValueError, TypeError, AttributeError):
+                                            pass
 
-                                if "Amount" in item.value:
-                                    amount = item.value["Amount"].value
+                                # Amount (line total)
+                                if isinstance(item_value, dict) and "Amount" in item_value:
+                                    amount_field = item_value["Amount"]
+                                    amount = amount_field.value if hasattr(amount_field, "value") else amount_field
                                     if amount:
-                                        line_item["line_total"] = float(amount.amount)
+                                        try:
+                                            line_item["line_total"] = float(amount.amount) if hasattr(amount, "amount") else float(amount)
+                                        except (ValueError, TypeError, AttributeError):
+                                            pass
+                                elif hasattr(item_value, "Amount"):
+                                    amount_field = item_value.Amount
+                                    amount = amount_field.value if hasattr(amount_field, "value") else amount_field
+                                    if amount:
+                                        try:
+                                            line_item["line_total"] = float(amount.amount) if hasattr(amount, "amount") else float(amount)
+                                        except (ValueError, TypeError, AttributeError):
+                                            pass
 
                                 extracted_data["line_items"].append(line_item)
 
@@ -138,11 +185,19 @@ class FormRecognizerService:
             # Extract from key-value pairs and tables
             for document in result.documents:
                 # Try to find PO number in key-value pairs
-                for key, field in result.key_value_pairs.items():
-                    key_lower = key.lower() if key else ""
-                    if "po" in key_lower or "purchase order" in key_lower or "order number" in key_lower:
-                        extracted_data["po_number"] = field.value if hasattr(field, "value") else str(field)
-                        break
+                # key_value_pairs is a dict-like object
+                if hasattr(result, "key_value_pairs"):
+                    kv_pairs = result.key_value_pairs
+                    if hasattr(kv_pairs, "items"):
+                        kv_iter = kv_pairs.items()
+                    else:
+                        kv_iter = kv_pairs if isinstance(kv_pairs, dict) else []
+                    
+                    for key, field in kv_iter:
+                        key_lower = key.lower() if key else ""
+                        if "po" in key_lower or "purchase order" in key_lower or "order number" in key_lower:
+                            extracted_data["po_number"] = field.value if hasattr(field, "value") else str(field)
+                            break
 
                 # Extract from tables (line items)
                 for table in result.tables:
@@ -206,11 +261,18 @@ class FormRecognizerService:
             # Similar extraction logic as PO
             for document in result.documents:
                 # Extract delivery note number
-                for key, field in result.key_value_pairs.items():
-                    key_lower = key.lower() if key else ""
-                    if "delivery" in key_lower or "dn" in key_lower or "note" in key_lower:
-                        extracted_data["delivery_note_number"] = field.value if hasattr(field, "value") else str(field)
-                        break
+                if hasattr(result, "key_value_pairs"):
+                    kv_pairs = result.key_value_pairs
+                    if hasattr(kv_pairs, "items"):
+                        kv_iter = kv_pairs.items()
+                    else:
+                        kv_iter = kv_pairs if isinstance(kv_pairs, dict) else []
+                    
+                    for key, field in kv_iter:
+                        key_lower = key.lower() if key else ""
+                        if "delivery" in key_lower or "dn" in key_lower or "note" in key_lower:
+                            extracted_data["delivery_note_number"] = field.value if hasattr(field, "value") else str(field)
+                            break
 
                 # Extract line items from tables
                 for table in result.tables:
