@@ -27,18 +27,21 @@ Automated document matching and three-way reconciliation for Purchase Orders, In
 ### Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/StephaneWamba/InvoiceFlow.git
    cd InvoiceFlow
    ```
 
 2. **Configure environment**
+
    ```bash
    make setup
    # Edit backend/.env with your Azure Form Recognizer credentials
    ```
 
 3. **Start services**
+
    ```bash
    make build
    make up
@@ -100,6 +103,7 @@ InvoiceFlow/
 ## Documentation
 
 All project documentation is in the `private/` folder:
+
 - `document-matching-reconciliation.md` - Project specification
 - `tech-stack-recommendation.md` - Technology choices
 - `roadmap.md` - Development roadmap
@@ -107,4 +111,3 @@ All project documentation is in the `private/` folder:
 ## License
 
 MIT
-
