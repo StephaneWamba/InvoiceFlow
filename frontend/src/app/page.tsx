@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { WorkspaceSelector } from "@/components/workspace-selector"
@@ -12,12 +13,27 @@ import { CollapsibleSection } from "@/components/collapsible-section"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Play, RefreshCw, Download } from "lucide-react"
-import { matchingApi, reportsApi, type Workspace } from "@/lib/api"
+import { matchingApi, reportsApi, workspacesApi, type Workspace } from "@/lib/api"
 
 export default function Home() {
+  const searchParams = useSearchParams()
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [exportingWorkspace, setExportingWorkspace] = useState(false)
+
+  // Load workspace from URL parameter if present
+  useEffect(() => {
+    const workspaceId = searchParams.get("workspace")
+    if (workspaceId && !workspace) {
+      workspacesApi.get(workspaceId)
+        .then((response) => {
+          setWorkspace(response.data)
+        })
+        .catch((error) => {
+          console.error("Failed to load workspace from URL:", error)
+        })
+    }
+  }, [searchParams, workspace])
 
   const handleWorkspaceChange = (ws: Workspace | null) => {
     setWorkspace(ws)
@@ -89,7 +105,10 @@ export default function Home() {
             {/* Workspace Selector */}
             <div className="flex items-center justify-between">
               <h1 className="text-2xl font-semibold tracking-tight text-black">Dashboard</h1>
-              <WorkspaceSelector onWorkspaceChange={handleWorkspaceChange} />
+              <WorkspaceSelector 
+                onWorkspaceChange={handleWorkspaceChange}
+                initialWorkspaceId={searchParams.get("workspace") || undefined}
+              />
             </div>
 
             {workspace && (

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { documentsApi, type Document } from "@/lib/api"
 import { ExtractedDataView } from "./extracted-data-view"
+import { PDFViewer } from "./pdf-viewer"
 
 interface DocumentTableProps {
   workspaceId: string
@@ -28,6 +29,8 @@ export function DocumentTable({ workspaceId, onRefresh }: DocumentTableProps) {
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  const [viewingPdfId, setViewingPdfId] = useState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   useEffect(() => {
     loadDocuments()
@@ -66,7 +69,7 @@ export function DocumentTable({ workspaceId, onRefresh }: DocumentTableProps) {
       case "FAILED":
         return <Badge variant="destructive" className="text-xs">Failed</Badge>
       default:
-        return <Badge variant="outline" className="text-xs">Uploaded</Badge>
+        return <Badge variant="outline" className="text-xs">Processed</Badge>
     }
   }
 
@@ -78,6 +81,27 @@ export function DocumentTable({ workspaceId, onRefresh }: DocumentTableProps) {
       onRefresh?.()
     } catch (error) {
       console.error("Failed to delete document:", error)
+    }
+  }
+
+  const handleDownload = async (doc: Document) => {
+    setDownloadingId(doc.id)
+    try {
+      const response = await documentsApi.download(doc.id)
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', doc.file_name)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Failed to download document:", error)
+      alert("Failed to download document. Please try again.")
+    } finally {
+      setDownloadingId(null)
     }
   }
 
@@ -169,8 +193,8 @@ export function DocumentTable({ workspaceId, onRefresh }: DocumentTableProps) {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6"
-                          onClick={() => toggleRow(doc.id)}
-                          disabled={doc.status !== "PROCESSED"}
+                          onClick={() => setViewingPdfId(doc.id)}
+                          title="View PDF"
                         >
                           <Eye className="h-3 w-3" />
                         </Button>
@@ -178,14 +202,18 @@ export function DocumentTable({ workspaceId, onRefresh }: DocumentTableProps) {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6"
+                          onClick={() => handleDownload(doc)}
+                          disabled={downloadingId === doc.id}
+                          title="Download PDF"
                         >
-                          <Download className="h-3 w-3" />
+                          <Download className={`h-3 w-3 ${downloadingId === doc.id ? 'animate-bounce' : ''}`} />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDelete(doc.id)}
                           className="h-6 w-6 text-[#404040] hover:text-destructive"
+                          title="Delete document"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -207,6 +235,15 @@ export function DocumentTable({ workspaceId, onRefresh }: DocumentTableProps) {
           </tbody>
         </table>
       </div>
+      
+      {/* PDF Viewer Modal */}
+      {viewingPdfId && (
+        <PDFViewer
+          documentId={viewingPdfId}
+          fileName={documents.find(d => d.id === viewingPdfId)?.file_name || "document.pdf"}
+          onClose={() => setViewingPdfId(null)}
+        />
+      )}
     </div>
   )
 }

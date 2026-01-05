@@ -7,9 +7,10 @@ import { workspacesApi, type Workspace } from "@/lib/api"
 
 interface WorkspaceSelectorProps {
   onWorkspaceChange: (workspace: Workspace | null) => void
+  initialWorkspaceId?: string
 }
 
-export function WorkspaceSelector({ onWorkspaceChange }: WorkspaceSelectorProps) {
+export function WorkspaceSelector({ onWorkspaceChange, initialWorkspaceId }: WorkspaceSelectorProps) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace | null>(null)
   const [isOpen, setIsOpen] = useState(false)
@@ -19,11 +20,31 @@ export function WorkspaceSelector({ onWorkspaceChange }: WorkspaceSelectorProps)
     loadWorkspaces()
   }, [])
 
+  useEffect(() => {
+    if (initialWorkspaceId && workspaces.length > 0 && !selectedWorkspace) {
+      const workspace = workspaces.find((w) => w.id === initialWorkspaceId)
+      if (workspace) {
+        setSelectedWorkspace(workspace)
+        onWorkspaceChange(workspace)
+      }
+    }
+  }, [initialWorkspaceId, workspaces, selectedWorkspace, onWorkspaceChange])
+
   const loadWorkspaces = async () => {
     try {
       const response = await workspacesApi.list()
       setWorkspaces(response.data)
       if (response.data.length > 0 && !selectedWorkspace) {
+        // If initialWorkspaceId is provided, try to select it
+        if (initialWorkspaceId) {
+          const workspace = response.data.find((w) => w.id === initialWorkspaceId)
+          if (workspace) {
+            setSelectedWorkspace(workspace)
+            onWorkspaceChange(workspace)
+            return
+          }
+        }
+        // Otherwise, select the first workspace
         setSelectedWorkspace(response.data[0])
         onWorkspaceChange(response.data[0])
       }

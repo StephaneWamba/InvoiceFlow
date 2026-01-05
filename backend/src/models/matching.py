@@ -13,6 +13,7 @@ class DiscrepancyType(str, enum.Enum):
     MISSING_ITEM = "missing_item"
     EXTRA_ITEM = "extra_item"
     DESCRIPTION_MISMATCH = "description_mismatch"
+    TAX_AMOUNT_MISMATCH = "tax_amount_mismatch"
 
 
 class DiscrepancySeverity(str, enum.Enum):

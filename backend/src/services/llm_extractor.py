@@ -60,6 +60,22 @@ class TotalsExtraction(BaseModel):
     )
 
 
+class CurrencyExtraction(BaseModel):
+    """Structured currency information extraction"""
+    currency_code: Optional[str] = Field(
+        None,
+        description="ISO currency code (e.g., 'USD', 'EUR', 'GBP'). Extract from patterns like 'USD', '$', '€', 'EUR', 'Currency: USD'"
+    )
+    confidence: float = Field(
+        default=0.0,
+        description="Confidence score 0.0-1.0 for the extraction"
+    )
+    reasoning: str = Field(
+        default="",
+        description="Brief explanation of how currency was extracted"
+    )
+
+
 class ValidationResult(BaseModel):
     """Result of validating extracted vs calculated values"""
     is_extraction_error: bool = Field(
@@ -79,28 +95,29 @@ class ValidationResult(BaseModel):
 
 class LLMExtractor:
     """LLM-powered extraction service using Instructor for structured outputs"""
-    
+
     def __init__(self):
         if not settings.OPENAI_API_KEY:
             self.client = None
             self.enabled = False
         else:
-            self.client = instructor.patch(OpenAI(api_key=settings.OPENAI_API_KEY))
+            self.client = instructor.patch(
+                OpenAI(api_key=settings.OPENAI_API_KEY))
             self.enabled = settings.USE_LLM_FOR_EXTRACTION
-    
+
     def extract_tax_rate(self, text_content: str) -> Optional[TaxExtraction]:
         """
         Extract tax rate from text using LLM with structured output.
-        
+
         Args:
             text_content: Text containing tax information (e.g., "Tax (8%): $160.00")
-            
+
         Returns:
             TaxExtraction with tax_rate and tax_amount, or None if LLM not available
         """
         if not self.enabled or not self.client:
             return None
-        
+
         try:
             prompt = f"""Extract tax information from this financial document text.
 
@@ -135,36 +152,36 @@ Return structured data with confidence score."""
                 ],
                 temperature=0.0,  # Deterministic extraction
             )
-            
+
             return response
-            
+
         except Exception as e:
             # Fallback to regex if LLM fails
             return None
-    
+
     def extract_totals_section(self, paragraphs: list[str]) -> Optional[TotalsExtraction]:
         """
         Extract totals section (subtotal, tax, total) from multiple paragraphs.
-        
+
         Args:
             paragraphs: List of paragraph texts that may contain totals information
-            
+
         Returns:
             TotalsExtraction with all totals fields, or None if LLM not available
         """
         if not self.enabled or not self.client:
             return None
-        
+
         try:
             # Combine relevant paragraphs
             relevant_text = "\n".join([
-                para for para in paragraphs 
+                para for para in paragraphs
                 if any(keyword in para.lower() for keyword in ["subtotal", "tax", "total", "vat"])
             ])
-            
+
             if not relevant_text:
                 return None
-            
+
             prompt = f"""Extract financial totals from this purchase order document.
 
 Text sections:
@@ -196,12 +213,12 @@ Return structured data with confidence scores."""
                 ],
                 temperature=0.0,
             )
-            
+
             return response
-            
+
         except Exception as e:
             return None
-    
+
     def validate_tax_discrepancy(
         self,
         extracted_tax_amount: float,
@@ -213,24 +230,25 @@ Return structured data with confidence scores."""
         """
         Validate if a discrepancy between extracted and calculated tax is an extraction error
         or a real document discrepancy.
-        
+
         Args:
             extracted_tax_amount: Tax amount extracted from document
             calculated_tax_amount: Tax amount calculated from subtotal × tax_rate
             subtotal: Subtotal amount
             tax_rate: Tax rate percentage
             document_context: Relevant document text for context
-            
+
         Returns:
             ValidationResult indicating if it's an extraction error, or None if LLM not available
         """
         if not self.enabled or not self.client:
             return None
-        
+
         try:
             difference = abs(extracted_tax_amount - calculated_tax_amount)
-            difference_percent = (difference / subtotal * 100) if subtotal > 0 else 0
-            
+            difference_percent = (difference / subtotal *
+                                  100) if subtotal > 0 else 0
+
             prompt = f"""You are validating financial data extraction accuracy.
 
 Context:
@@ -271,10 +289,8 @@ Return structured validation result."""
                 ],
                 temperature=0.0,
             )
-            
+
             return response
-            
+
         except Exception as e:
             return None
-
-

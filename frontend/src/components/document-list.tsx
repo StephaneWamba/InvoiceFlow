@@ -67,7 +67,7 @@ export function DocumentList({ workspaceId, onRefresh }: DocumentListProps) {
       case "FAILED":
         return <Badge variant="destructive">✗ Failed</Badge>
       default:
-        return <Badge variant="outline">Uploaded</Badge>
+        return <Badge variant="outline">Processed</Badge>
     }
   }
 

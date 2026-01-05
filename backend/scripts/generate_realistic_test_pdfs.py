@@ -1,9 +1,13 @@
 """
-Generate additional test PDF sets with diverse scenarios including:
+Generate realistic test PDF sets with real-world company names.
+All documents are 1 page long and test all analysis features:
 - Multi-currency scenarios (USD, EUR, GBP)
 - Different tax rates (0%, 8%, 10%, 20% VAT)
-- Complex matching scenarios
-- Edge cases
+- Tax rate mismatches
+- Currency mismatches
+- Perfect matches
+- Large quantities
+- High-value items
 """
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -14,12 +18,17 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT
 
-# Create additional test sets directory
-ASSETS_DIR = Path(__file__).parent.parent.parent / "assets" / "additional-test-sets"
+# Create realistic test sets directory
+# In Docker, use /app as base; locally, use script's parent
+if Path("/app").exists():
+    ASSETS_DIR = Path("/app") / "assets" / "realistic-test-sets"
+else:
+    ASSETS_DIR = Path(__file__).parent.parent.parent / \
+        "assets" / "realistic-test-sets"
 ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def generate_invoice_with_currency(
+def generate_invoice(
     invoice_number: str, po_number: str, vendor: str, output_path: Path,
     items: list, currency_code: str = "USD", tax_rate: float = 0.08
 ):
@@ -27,7 +36,7 @@ def generate_invoice_with_currency(
     doc = SimpleDocTemplate(str(output_path), pagesize=letter)
     story = []
     styles = getSampleStyleSheet()
-    
+
     # Currency symbol mapping
     currency_symbols = {
         "USD": "$",
@@ -38,7 +47,7 @@ def generate_invoice_with_currency(
         "AUD": "A$",
     }
     symbol = currency_symbols.get(currency_code, currency_code)
-    
+
     # Title
     title_style = ParagraphStyle(
         'CustomTitle',
@@ -49,14 +58,17 @@ def generate_invoice_with_currency(
     )
     story.append(Paragraph("INVOICE", title_style))
     story.append(Spacer(1, 0.2*inch))
-    
+
     # Header info
     header_data = [
-        ['Invoice Number:', invoice_number, 'Date:', datetime.now().strftime('%Y-%m-%d')],
-        ['PO Number:', po_number, 'Due Date:', (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')],
+        ['Invoice Number:', invoice_number, 'Date:',
+            datetime.now().strftime('%Y-%m-%d')],
+        ['PO Number:', po_number, 'Due Date:',
+            (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')],
         ['Currency:', currency_code, 'Payment Terms:', 'Net 30'],
     ]
-    header_table = Table(header_data, colWidths=[1.5*inch, 2*inch, 1.5*inch, 2*inch])
+    header_table = Table(header_data, colWidths=[
+                         1.5*inch, 2*inch, 1.5*inch, 2*inch])
     header_table.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 0), (-1, -1), 10),
@@ -67,7 +79,7 @@ def generate_invoice_with_currency(
     ]))
     story.append(header_table)
     story.append(Spacer(1, 0.3*inch))
-    
+
     # Vendor and Bill To
     from_para = Paragraph(
         f'<b>{vendor}</b><br/>123 Business St<br/>New York, NY 10001<br/>USA',
@@ -93,7 +105,7 @@ def generate_invoice_with_currency(
     ]))
     story.append(vendor_table)
     story.append(Spacer(1, 0.3*inch))
-    
+
     # Line items
     table_data = [['Item #', 'Description', 'Qty', 'Unit Price', 'Total']]
     for item in items:
@@ -104,8 +116,9 @@ def generate_invoice_with_currency(
             f"{symbol}{item['price']:.2f}",
             f"{symbol}{item['total']:.2f}",
         ])
-    
-    items_table = Table(table_data, colWidths=[0.8*inch, 3*inch, 0.8*inch, 1.2*inch, 1.2*inch])
+
+    items_table = Table(table_data, colWidths=[
+                        0.8*inch, 3*inch, 0.8*inch, 1.2*inch, 1.2*inch])
     items_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a5568')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -116,19 +129,20 @@ def generate_invoice_with_currency(
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 1), (-1, -1), 10),
         ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f7fafc')]),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1),
+         [colors.white, colors.HexColor('#f7fafc')]),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
         ('TOPPADDING', (0, 0), (-1, -1), 8),
     ]))
     story.append(items_table)
     story.append(Spacer(1, 0.3*inch))
-    
+
     # Totals
     subtotal = sum(item['total'] for item in items)
     tax = subtotal * tax_rate
     final_total = subtotal + tax
-    
+
     totals_data = [
         ['Subtotal:', f'{symbol}{subtotal:,.2f}'],
         [f'Tax ({tax_rate*100:.0f}%):', f'{symbol}{tax:,.2f}'],
@@ -152,7 +166,7 @@ def generate_invoice_with_currency(
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
     story.append(container_table)
-    
+
     # Add Amount Due as standalone text for better Azure recognition
     story.append(Spacer(1, 0.1*inch))
     amount_due_style = ParagraphStyle(
@@ -163,19 +177,20 @@ def generate_invoice_with_currency(
         alignment=2,  # Right align
         textColor=colors.HexColor('#1a1a1a'),
     )
-    story.append(Paragraph(f'Amount Due: {symbol}{final_total:,.2f}', amount_due_style))
-    
+    story.append(
+        Paragraph(f'Amount Due: {symbol}{final_total:,.2f}', amount_due_style))
+
     doc.build(story)
 
 
-def generate_po_with_currency(
+def generate_po(
     po_number: str, vendor: str, output_path: Path, items: list, currency_code: str = "USD", tax_rate: float = 0.08
 ):
     """Generate PO with specific currency and tax rate."""
     doc = SimpleDocTemplate(str(output_path), pagesize=letter)
     story = []
     styles = getSampleStyleSheet()
-    
+
     currency_symbols = {
         "USD": "$",
         "EUR": "€",
@@ -185,7 +200,7 @@ def generate_po_with_currency(
         "AUD": "A$",
     }
     symbol = currency_symbols.get(currency_code, currency_code)
-    
+
     # Title
     title_style = ParagraphStyle(
         'CustomTitle',
@@ -196,13 +211,14 @@ def generate_po_with_currency(
     )
     story.append(Paragraph("PURCHASE ORDER", title_style))
     story.append(Spacer(1, 0.2*inch))
-    
-    # Header
+
+    # Header info
     header_data = [
         ['PO Number:', po_number, 'Date:', datetime.now().strftime('%Y-%m-%d')],
-        ['Currency:', currency_code, 'Expected Delivery:', (datetime.now() + timedelta(days=14)).strftime('%Y-%m-%d')],
+        ['Currency:', currency_code, 'Payment Terms:', 'Net 30'],
     ]
-    header_table = Table(header_data, colWidths=[1.5*inch, 2*inch, 1.5*inch, 2*inch])
+    header_table = Table(header_data, colWidths=[
+                         1.5*inch, 2*inch, 1.5*inch, 2*inch])
     header_table.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 0), (-1, -1), 10),
@@ -213,19 +229,19 @@ def generate_po_with_currency(
     ]))
     story.append(header_table)
     story.append(Spacer(1, 0.3*inch))
-    
+
     # Vendor and Ship To
     from_para = Paragraph(
-        f'<b>{vendor}</b><br/>123 Business St<br/>New York, NY 10001<br/>USA',
-        styles['Normal']
-    )
-    ship_to_para = Paragraph(
         '<b>ACME Corporation</b><br/>456 Customer Ave<br/>Los Angeles, CA 90001<br/>USA',
         styles['Normal']
     )
+    vendor_para = Paragraph(
+        f'<b>{vendor}</b><br/>123 Business St<br/>New York, NY 10001<br/>USA',
+        styles['Normal']
+    )
     vendor_data = [
-        ['Vendor:', from_para],
-        ['Ship To:', ship_to_para],
+        ['Ship To:', from_para],
+        ['Vendor:', vendor_para],
     ]
     vendor_table = Table(vendor_data, colWidths=[1*inch, 6*inch])
     vendor_table.setStyle(TableStyle([
@@ -239,7 +255,7 @@ def generate_po_with_currency(
     ]))
     story.append(vendor_table)
     story.append(Spacer(1, 0.3*inch))
-    
+
     # Line items
     table_data = [['Item #', 'Description', 'Qty', 'Unit Price', 'Total']]
     for item in items:
@@ -250,8 +266,9 @@ def generate_po_with_currency(
             f"{symbol}{item['price']:.2f}",
             f"{symbol}{item['total']:.2f}",
         ])
-    
-    items_table = Table(table_data, colWidths=[0.8*inch, 3*inch, 0.8*inch, 1.2*inch, 1.2*inch])
+
+    items_table = Table(table_data, colWidths=[
+                        0.8*inch, 3*inch, 0.8*inch, 1.2*inch, 1.2*inch])
     items_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a5568')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -262,23 +279,24 @@ def generate_po_with_currency(
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 1), (-1, -1), 10),
         ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f7fafc')]),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1),
+         [colors.white, colors.HexColor('#f7fafc')]),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
         ('TOPPADDING', (0, 0), (-1, -1), 8),
     ]))
     story.append(items_table)
     story.append(Spacer(1, 0.3*inch))
-    
+
     # Totals
     subtotal = sum(item['total'] for item in items)
     tax = subtotal * tax_rate
     final_total = subtotal + tax
-    
+
     totals_data = [
         ['Subtotal:', f'{symbol}{subtotal:,.2f}'],
         [f'Tax ({tax_rate*100:.0f}%):', f'{symbol}{tax:,.2f}'],
-        ['Total:', f'{symbol}{final_total:,.2f}'],
+        ['Total Amount:', f'{symbol}{final_total:,.2f}'],
     ]
     totals_table = Table(totals_data, colWidths=[1*inch, 1.5*inch])
     totals_table.setStyle(TableStyle([
@@ -298,199 +316,196 @@ def generate_po_with_currency(
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
     story.append(container_table)
-    
+
     doc.build(story)
 
 
 def main():
-    """Generate additional test PDF sets."""
-    print("Generating additional test PDF sets...")
+    """Generate realistic test PDF sets with real-world company names."""
+    print("Generating realistic test PDF sets...")
     print(f"Output directory: {ASSETS_DIR}\n")
-    
-    # Set 1: Multi-Currency Scenarios
-    print("[Set 1] Multi-Currency Scenarios")
-    currencies = [
-        ("USD", "$", 0.08),
-        ("EUR", "€", 0.20),  # 20% VAT
-        ("GBP", "£", 0.20),  # 20% VAT
+
+    # Set 1: Multi-Currency Scenarios (Perfect Matches)
+    print("[Set 1] Multi-Currency Scenarios - Perfect Matches")
+    currency_companies = [
+        ("USD", "$", 0.08, "Acme Corporation"),
+        ("EUR", "€", 0.20, "European Industries Ltd"),
+        ("GBP", "£", 0.20, "British Manufacturing Co"),
     ]
-    
-    for idx, (currency, symbol, tax_rate) in enumerate(currencies, 1):
-        po_number = f"PO-2024-MC-{idx:03d}"
-        invoice_number = f"INV-2024-MC-{idx:03d}"
-        vendor = f"INTERNATIONAL VENDOR {currency}"
-        
+
+    for idx, (currency, symbol, tax_rate, company) in enumerate(currency_companies, 1):
+        po_number = f"PO-2024-RT-{idx:03d}"
+        invoice_number = f"INV-2024-RT-{idx:03d}"
+
         items = [
-            {'item_num': '001', 'description': f'Product A ({currency})', 'qty': 10, 'price': 100.0, 'total': 1000.0},
-            {'item_num': '002', 'description': f'Product B ({currency})', 'qty': 5, 'price': 200.0, 'total': 1000.0},
+            {'item_num': '001',
+                'description': f'Product A ({currency})', 'qty': 10, 'price': 100.0, 'total': 1000.0},
+            {'item_num': '002',
+                'description': f'Product B ({currency})', 'qty': 5, 'price': 200.0, 'total': 1000.0},
         ]
-        
-        generate_po_with_currency(
-            po_number, vendor, ASSETS_DIR / f"po-currency-{currency.lower()}.pdf",
+
+        generate_po(
+            po_number, company, ASSETS_DIR /
+            f"po-currency-{currency.lower()}.pdf",
             items, currency, tax_rate
         )
         print(f"  [OK] Generated: po-currency-{currency.lower()}.pdf")
-        
-        generate_invoice_with_currency(
-            invoice_number, po_number, vendor, ASSETS_DIR / f"invoice-currency-{currency.lower()}.pdf",
+
+        generate_invoice(
+            invoice_number, po_number, company, ASSETS_DIR /
+            f"invoice-currency-{currency.lower()}.pdf",
             items, currency, tax_rate
         )
         print(f"  [OK] Generated: invoice-currency-{currency.lower()}.pdf")
-    
-    # Set 2: Different Tax Rates
-    print("\n[Set 2] Different Tax Rates")
+
+    # Set 2: Different Tax Rates (Perfect Matches)
+    print("\n[Set 2] Different Tax Rates - Perfect Matches")
     tax_scenarios = [
-        (0.0, "NO_TAX"),
-        (0.08, "STANDARD"),
-        (0.10, "HIGH"),
-        (0.20, "VAT"),
+        (0.0, "NO_TAX", "Tech Solutions Inc"),
+        (0.08, "STANDARD", "Global Trading Partners"),
+        (0.10, "HIGH", "Premium Services Group"),
+        (0.20, "VAT", "International Commerce Ltd"),
     ]
-    
-    for idx, (tax_rate, label) in enumerate(tax_scenarios, 1):
-        po_number = f"PO-2024-TAX-{idx:03d}"
-        invoice_number = f"INV-2024-TAX-{idx:03d}"
-        vendor = f"TAX VENDOR {label}"
-        
+
+    for idx, (tax_rate, label, company) in enumerate(tax_scenarios, 1):
+        po_number = f"PO-2024-RT-TAX-{idx:03d}"
+        invoice_number = f"INV-2024-RT-TAX-{idx:03d}"
+
         items = [
-            {'item_num': '001', 'description': 'Standard Item', 'qty': 20, 'price': 50.0, 'total': 1000.0},
-            {'item_num': '002', 'description': 'Premium Item', 'qty': 10, 'price': 100.0, 'total': 1000.0},
+            {'item_num': '001', 'description': 'Standard Item',
+                'qty': 20, 'price': 50.0, 'total': 1000.0},
+            {'item_num': '002', 'description': 'Premium Item',
+                'qty': 10, 'price': 100.0, 'total': 1000.0},
         ]
-        
-        generate_po_with_currency(
-            po_number, vendor, ASSETS_DIR / f"po-tax-{label.lower()}.pdf",
+
+        generate_po(
+            po_number, company, ASSETS_DIR / f"po-tax-{label.lower()}.pdf",
             items, "USD", tax_rate
         )
         print(f"  [OK] Generated: po-tax-{label.lower()}.pdf")
-        
-        generate_invoice_with_currency(
-            invoice_number, po_number, vendor, ASSETS_DIR / f"invoice-tax-{label.lower()}.pdf",
+
+        generate_invoice(
+            invoice_number, po_number, company, ASSETS_DIR /
+            f"invoice-tax-{label.lower()}.pdf",
             items, "USD", tax_rate
         )
         print(f"  [OK] Generated: invoice-tax-{label.lower()}.pdf")
-    
-    # Set 3: Tax Rate Mismatch (PO 8%, Invoice 10%)
-    print("\n[Set 3] Tax Rate Mismatch")
-    po_number = "PO-2024-TAX-MISMATCH"
-    invoice_number = "INV-2024-TAX-MISMATCH"
-    vendor = "TAX MISMATCH VENDOR"
-    
+
+    # Set 3: Tax Rate Mismatch (Intentional Discrepancy)
+    print("\n[Set 3] Tax Rate Mismatch - Intentional Discrepancy")
+    po_number = "PO-2024-RT-TAX-MISMATCH"
+    invoice_number = "INV-2024-RT-TAX-MISMATCH"
+    company = "Metro Supply Chain Solutions"
+
     items = [
-        {'item_num': '001', 'description': 'Item A', 'qty': 15, 'price': 80.0, 'total': 1200.0},
-        {'item_num': '002', 'description': 'Item B', 'qty': 8, 'price': 150.0, 'total': 1200.0},
+        {'item_num': '001', 'description': 'Item A',
+            'qty': 15, 'price': 80.0, 'total': 1200.0},
+        {'item_num': '002', 'description': 'Item B',
+            'qty': 8, 'price': 150.0, 'total': 1200.0},
     ]
-    
-    generate_po_with_currency(
-        po_number, vendor, ASSETS_DIR / "po-tax-mismatch.pdf",
+
+    generate_po(
+        po_number, company, ASSETS_DIR / "po-tax-mismatch.pdf",
         items, "USD", 0.08
     )
     print(f"  [OK] Generated: po-tax-mismatch.pdf")
-    
-    generate_invoice_with_currency(
-        invoice_number, po_number, vendor, ASSETS_DIR / "invoice-tax-mismatch.pdf",
+
+    generate_invoice(
+        invoice_number, po_number, company, ASSETS_DIR / "invoice-tax-mismatch.pdf",
         items, "USD", 0.10  # Different tax rate
     )
     print(f"  [OK] Generated: invoice-tax-mismatch.pdf")
-    
-    # Set 4: Currency Mismatch (PO USD, Invoice EUR)
-    print("\n[Set 4] Currency Mismatch")
-    po_number = "PO-2024-CURRENCY-MISMATCH"
-    invoice_number = "INV-2024-CURRENCY-MISMATCH"
-    vendor = "CURRENCY MISMATCH VENDOR"
-    
+
+    # Set 4: Currency Mismatch (Intentional Discrepancy)
+    print("\n[Set 4] Currency Mismatch - Intentional Discrepancy")
+    po_number = "PO-2024-RT-CURRENCY-MISMATCH"
+    invoice_number = "INV-2024-RT-CURRENCY-MISMATCH"
+    company = "Worldwide Distribution Corp"
+
     items = [
-        {'item_num': '001', 'description': 'International Item', 'qty': 12, 'price': 100.0, 'total': 1200.0},
+        {'item_num': '001', 'description': 'International Item',
+            'qty': 12, 'price': 100.0, 'total': 1200.0},
     ]
-    
-    generate_po_with_currency(
-        po_number, vendor, ASSETS_DIR / "po-currency-mismatch.pdf",
+
+    generate_po(
+        po_number, company, ASSETS_DIR / "po-currency-mismatch.pdf",
         items, "USD", 0.08
     )
     print(f"  [OK] Generated: po-currency-mismatch.pdf")
-    
-    generate_invoice_with_currency(
-        invoice_number, po_number, vendor, ASSETS_DIR / "invoice-currency-mismatch.pdf",
+
+    generate_invoice(
+        invoice_number, po_number, company, ASSETS_DIR / "invoice-currency-mismatch.pdf",
         items, "EUR", 0.20  # Different currency
     )
     print(f"  [OK] Generated: invoice-currency-mismatch.pdf")
-    
-    # Set 5: Large Quantities
-    print("\n[Set 5] Large Quantities")
-    po_number = "PO-2024-LARGE"
-    invoice_number = "INV-2024-LARGE"
-    vendor = "BULK VENDOR"
-    
+
+    # Set 5: Large Quantities (Perfect Match)
+    print("\n[Set 5] Large Quantities - Perfect Match")
+    po_number = "PO-2024-RT-LARGE"
+    invoice_number = "INV-2024-RT-LARGE"
+    company = "Bulk Materials Supply Co"
+
     items = [
-        {'item_num': '001', 'description': 'Bulk Item A', 'qty': 1000, 'price': 5.0, 'total': 5000.0},
-        {'item_num': '002', 'description': 'Bulk Item B', 'qty': 500, 'price': 10.0, 'total': 5000.0},
-        {'item_num': '003', 'description': 'Bulk Item C', 'qty': 250, 'price': 20.0, 'total': 5000.0},
+        {'item_num': '001', 'description': 'Bulk Item A',
+            'qty': 1000, 'price': 5.0, 'total': 5000.0},
+        {'item_num': '002', 'description': 'Bulk Item B',
+            'qty': 500, 'price': 10.0, 'total': 5000.0},
+        {'item_num': '003', 'description': 'Bulk Item C',
+            'qty': 250, 'price': 20.0, 'total': 5000.0},
     ]
-    
-    generate_po_with_currency(
-        po_number, vendor, ASSETS_DIR / "po-large-quantities.pdf",
+
+    generate_po(
+        po_number, company, ASSETS_DIR / "po-large-quantities.pdf",
         items, "USD", 0.08
     )
     print(f"  [OK] Generated: po-large-quantities.pdf")
-    
-    generate_invoice_with_currency(
-        invoice_number, po_number, vendor, ASSETS_DIR / "invoice-large-quantities.pdf",
+
+    generate_invoice(
+        invoice_number, po_number, company, ASSETS_DIR / "invoice-large-quantities.pdf",
         items, "USD", 0.08
     )
     print(f"  [OK] Generated: invoice-large-quantities.pdf")
-    
-    # Set 6: High-Value Items
-    print("\n[Set 6] High-Value Items")
-    po_number = "PO-2024-HIGH-VALUE"
-    invoice_number = "INV-2024-HIGH-VALUE"
-    vendor = "LUXURY VENDOR"
-    
+
+    # Set 6: High-Value Items (Perfect Match)
+    print("\n[Set 6] High-Value Items - Perfect Match")
+    po_number = "PO-2024-RT-HIGH-VALUE"
+    invoice_number = "INV-2024-RT-HIGH-VALUE"
+    company = "Luxury Equipment Suppliers"
+
     items = [
-        {'item_num': '001', 'description': 'Premium Equipment', 'qty': 2, 'price': 50000.0, 'total': 100000.0},
-        {'item_num': '002', 'description': 'Professional Service', 'qty': 1, 'price': 25000.0, 'total': 25000.0},
+        {'item_num': '001', 'description': 'Premium Equipment',
+            'qty': 2, 'price': 50000.0, 'total': 100000.0},
+        {'item_num': '002', 'description': 'Professional Service',
+            'qty': 1, 'price': 25000.0, 'total': 25000.0},
     ]
-    
-    generate_po_with_currency(
-        po_number, vendor, ASSETS_DIR / "po-high-value.pdf",
+
+    generate_po(
+        po_number, company, ASSETS_DIR / "po-high-value.pdf",
         items, "USD", 0.08
     )
     print(f"  [OK] Generated: po-high-value.pdf")
-    
-    generate_invoice_with_currency(
-        invoice_number, po_number, vendor, ASSETS_DIR / "invoice-high-value.pdf",
+
+    generate_invoice(
+        invoice_number, po_number, company, ASSETS_DIR / "invoice-high-value.pdf",
         items, "USD", 0.08
     )
     print(f"  [OK] Generated: invoice-high-value.pdf")
-    
-    # Set 7: Many Line Items
-    print("\n[Set 7] Many Line Items")
-    po_number = "PO-2024-MANY-ITEMS"
-    invoice_number = "INV-2024-MANY-ITEMS"
-    vendor = "DETAILED VENDOR"
-    
-    items = [
-        {'item_num': f'{i:03d}', 'description': f'Item {i}', 'qty': i, 'price': 10.0 * i, 'total': 10.0 * i * i}
-        for i in range(1, 16)  # 15 items
-    ]
-    
-    generate_po_with_currency(
-        po_number, vendor, ASSETS_DIR / "po-many-items.pdf",
-        items, "USD", 0.08
-    )
-    print(f"  [OK] Generated: po-many-items.pdf")
-    
-    generate_invoice_with_currency(
-        invoice_number, po_number, vendor, ASSETS_DIR / "invoice-many-items.pdf",
-        items, "USD", 0.08
-    )
-    print(f"  [OK] Generated: invoice-many-items.pdf")
-    
+
     print("\n" + "="*60)
-    print("All additional test PDFs generated successfully!")
+    print("All realistic test PDFs generated successfully!")
     print("="*60)
     print(f"\nLocation: {ASSETS_DIR}")
     print(f"\nTotal files generated: {len(list(ASSETS_DIR.glob('*.pdf')))}")
+    print("\nTest Coverage:")
+    print("  ✓ Multi-currency scenarios (USD, EUR, GBP)")
+    print("  ✓ Different tax rates (0%, 8%, 10%, 20%)")
+    print("  ✓ Tax rate mismatch detection")
+    print("  ✓ Currency mismatch detection")
+    print("  ✓ Large quantities")
+    print("  ✓ High-value items")
+    print("  ✓ All documents are 1 page long")
+    print("  ✓ Realistic company names (no fuzzy matching issues)")
 
 
 if __name__ == "__main__":
     main()
-
-

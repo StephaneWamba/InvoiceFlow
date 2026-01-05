@@ -76,3 +76,8 @@ htmlcov/
 .pytest_cache/
 
 
+
+*.md 
+
+!readme.md
+

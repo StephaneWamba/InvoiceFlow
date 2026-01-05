@@ -224,12 +224,12 @@ class MatchingService:
         # Check currency mismatch
         import logging
         logger = logging.getLogger(__name__)
-        
+
         logger.info(
             f"[CURRENCY CHECK] PO currency: {po_data.currency_code}, "
             f"Invoice currency: {invoice_data.currency_code}"
         )
-        
+
         if po_data.currency_code and invoice_data.currency_code:
             if po_data.currency_code.upper() != invoice_data.currency_code.upper():
                 logger.warning(
@@ -246,13 +246,15 @@ class MatchingService:
                     "message": f"Currency mismatch: PO={po_data.currency_code}, Invoice={invoice_data.currency_code}",
                 })
             else:
-                logger.info(f"[CURRENCY CHECK] Currencies match: {po_data.currency_code}")
+                logger.info(
+                    f"[CURRENCY CHECK] Currencies match: {po_data.currency_code}")
         else:
             logger.warning(
                 f"[CURRENCY CHECK] Missing currency codes - PO: {po_data.currency_code}, Invoice: {invoice_data.currency_code}"
             )
 
         # Check tax discrepancies
+        # 1. Check tax rate mismatch
         if po_data.tax_rate is not None and invoice_data.tax_rate is not None:
             tax_rate_diff = abs(po_data.tax_rate - invoice_data.tax_rate)
             if tax_rate_diff > 0.1:  # 0.1% tolerance
@@ -268,17 +270,63 @@ class MatchingService:
                     "message": f"Tax rate mismatch: PO={po_data.tax_rate:.2f}%, Invoice={invoice_data.tax_rate:.2f}%",
                 })
 
-        # Calculate totals - use extracted total_amount if available, otherwise calculate from line items
-        # This is faithful to the document: if total_amount is extracted, use it; otherwise, the total IS in the document as sum of line items
-        po_total = float(po_data.total_amount) if po_data.total_amount else self._calculate_total_from_line_items(po_data.line_items)
-        invoice_total = float(invoice_data.total_amount) if invoice_data.total_amount else self._calculate_total_from_line_items(invoice_data.line_items)
-        dn_total = float(dn_data.total_amount) if (dn_data and dn_data.total_amount) else (self._calculate_total_from_line_items(dn_data.line_items) if dn_data and dn_data.line_items else 0.0)
+        # 2. Check tax amount mismatch (even if rates match, amounts might differ due to calculation errors)
+        if po_data.tax_amount is not None and invoice_data.tax_amount is not None:
+            po_tax = float(po_data.tax_amount)
+            inv_tax = float(invoice_data.tax_amount)
+            tax_amount_diff = abs(po_tax - inv_tax)
+
+            # Calculate expected tax amounts from subtotals and rates for validation
+            po_expected_tax = None
+            inv_expected_tax = None
+
+            if po_data.subtotal and po_data.tax_rate:
+                po_expected_tax = float(
+                    po_data.subtotal) * (float(po_data.tax_rate) / 100)
+            if invoice_data.subtotal and invoice_data.tax_rate:
+                inv_expected_tax = float(
+                    invoice_data.subtotal) * (float(invoice_data.tax_rate) / 100)
+
+            # Check if the difference is significant (more than $1 or 1% of the smaller amount)
+            tolerance = max(1.0, min(po_tax, inv_tax) *
+                            0.01) if po_tax > 0 and inv_tax > 0 else 1.0
+
+            if tax_amount_diff > tolerance:
+                # Check if it's a calculation error (expected tax doesn't match extracted)
+                is_calculation_error = False
+                if po_expected_tax and abs(po_tax - po_expected_tax) > tolerance:
+                    is_calculation_error = True
+                if inv_expected_tax and abs(inv_tax - inv_expected_tax) > tolerance:
+                    is_calculation_error = True
+
+                # Only flag as discrepancy if it's not just a calculation error in one document
+                # (calculation errors are handled during extraction)
+                if not is_calculation_error:
+                    severity = DiscrepancySeverity.CRITICAL if tax_amount_diff > 100 else (
+                        DiscrepancySeverity.HIGH if tax_amount_diff > 10 else DiscrepancySeverity.MEDIUM
+                    )
+                    discrepancies.append({
+                        "type": "tax_amount_mismatch",
+                        "severity": severity.value,
+                        "item_number": None,
+                        "description": "Tax Amount Mismatch",
+                        "po_value": {"tax_amount": po_tax, "tax_rate": float(po_data.tax_rate) if po_data.tax_rate else None},
+                        "invoice_value": {"tax_amount": inv_tax, "tax_rate": float(invoice_data.tax_rate) if invoice_data.tax_rate else None},
+                        "delivery_value": None,
+                        "message": f"Tax amount mismatch: PO=${po_tax:.2f}, Invoice=${inv_tax:.2f} (difference: ${tax_amount_diff:.2f})",
+                    })
+
+        # Calculate totals - use extracted total_amount if available, otherwise calculate from subtotal + tax, or fallback to line items
+        # Priority: 1) extracted total_amount, 2) subtotal + tax_amount, 3) sum of line items (subtotal only)
+        po_total = self._calculate_document_total(po_data)
+        invoice_total = self._calculate_document_total(invoice_data)
+        dn_total = self._calculate_document_total(dn_data) if dn_data else 0.0
 
         total_difference = abs(invoice_total - po_total)
 
         # Get vendor name (prefer PO, fallback to invoice)
         vendor_name = po_data.vendor_name or invoice_data.vendor_name or "Unknown Vendor"
-        
+
         # Create matching result
         result = MatchingResult(
             workspace_id=workspace_id,
@@ -293,15 +341,38 @@ class MatchingService:
             total_difference=str(total_difference),
             discrepancies=discrepancies,
         )
-        
+
         # Store vendor_name in match_confidence for now (until we add a proper field)
         confidence_scores["vendor_name"] = vendor_name
         result.match_confidence = json.dumps(confidence_scores)
 
         return result
 
+    def _calculate_document_total(self, data: ExtractedData) -> float:
+        """
+        Calculate document total with priority:
+        1. Extracted total_amount (if available)
+        2. Calculated: subtotal + tax_amount (if both available)
+        3. Fallback: sum of line items (subtotal only)
+        """
+        # Priority 1: Use extracted total_amount if available
+        if data.total_amount:
+            return float(data.total_amount)
+
+        # Priority 2: Calculate from subtotal + tax_amount
+        if data.subtotal and data.tax_amount:
+            try:
+                calculated_total = float(
+                    data.subtotal) + float(data.tax_amount)
+                return calculated_total
+            except (ValueError, TypeError):
+                pass
+
+        # Priority 3: Fallback to sum of line items (gives subtotal)
+        return self._calculate_total_from_line_items(data.line_items)
+
     def _calculate_total_from_line_items(self, line_items: List[Dict[str, Any]]) -> float:
-        """Calculate total from line items - this is data that IS in the document"""
+        """Calculate subtotal from line items - sums line_total values"""
         if not line_items:
             return 0.0
         total = 0.0
@@ -510,9 +581,10 @@ class MatchingService:
         if not item_num:
             return ""
         item_num = item_num.strip()
-        # Try to normalize numeric item numbers (e.g., "013" -> "13")
+        # Try to normalize numeric item numbers (e.g., "013" -> "13", "012" -> "12")
         try:
             # If it's numeric, convert to int then back to string to remove leading zeros
+            # This handles "012" = "12" = 12
             normalized = str(int(item_num))
             return normalized
         except ValueError:
@@ -548,7 +620,7 @@ class MatchingService:
                 item_num2 = (item2.get("item_number") or "").strip()
                 normalized_num2 = self._normalize_item_number(item_num2)
 
-                # Try normalized item number match first (handles "013" = "13")
+                # Try normalized item number match first (handles "013" = "13", "012" = "12")
                 if normalized_num1 and normalized_num2 and normalized_num1 == normalized_num2:
                     best_match = item2
                     best_score = 100
@@ -561,6 +633,21 @@ class MatchingService:
                     best_score = 100
                     best_index = j
                     break
+
+                # Try reverse normalization: if one is "12" and other is "012", they should match
+                # This handles cases where normalization wasn't applied consistently
+                try:
+                    num1_int = int(
+                        item_num1) if item_num1 and item_num1.isdigit() else None
+                    num2_int = int(
+                        item_num2) if item_num2 and item_num2.isdigit() else None
+                    if num1_int is not None and num2_int is not None and num1_int == num2_int:
+                        best_match = item2
+                        best_score = 100
+                        best_index = j
+                        break
+                except (ValueError, AttributeError):
+                    pass
 
                 # Fuzzy match on description
                 if desc1 and desc2:

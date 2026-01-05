@@ -289,7 +289,9 @@ export function ComparisonView({ result }: ComparisonViewProps) {
           </Badge>
         </div>
         <div>
-          <div className="text-xs text-[#404040] mb-0.5">Vendor Match</div>
+          <div className="text-xs text-[#404040] mb-0.5">
+            {result.match_confidence.vendor_name || "Vendor Match"}
+          </div>
           <Badge variant="outline" className="text-xs">
             {result.match_confidence.vendor_name_match.toFixed(0)}%
           </Badge>

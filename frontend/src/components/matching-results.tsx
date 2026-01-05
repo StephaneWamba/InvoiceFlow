@@ -4,9 +4,10 @@ import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { matchingApi, type MatchingResult } from "@/lib/api"
-import { ChevronDown, ChevronUp } from "lucide-react"
+import { matchingApi, documentsApi, type MatchingResult } from "@/lib/api"
+import { ChevronDown, ChevronUp, Eye, AlertTriangle, XCircle } from "lucide-react"
 import { ComparisonView } from "./comparison-view"
+import { PDFViewer } from "./pdf-viewer"
 
 interface MatchingResultsProps {
   workspaceId: string
@@ -17,10 +18,44 @@ export function MatchingResults({ workspaceId, refreshKey }: MatchingResultsProp
   const [results, setResults] = useState<MatchingResult[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedResultId, setExpandedResultId] = useState<string | null>(null)
+  const [viewingDocument, setViewingDocument] = useState<{ id: string; fileName: string } | null>(null)
+  const [documentNames, setDocumentNames] = useState<Record<string, string>>({})
 
   useEffect(() => {
     loadResults()
   }, [workspaceId, refreshKey])
+
+  // Load document names when results change
+  useEffect(() => {
+    const loadDocumentNames = async () => {
+      const names: Record<string, string> = {}
+      const documentIds = new Set<string>()
+      
+      results.forEach(result => {
+        if (result.po_document_id) documentIds.add(result.po_document_id)
+        if (result.invoice_document_id) documentIds.add(result.invoice_document_id)
+        if (result.delivery_note_document_id) documentIds.add(result.delivery_note_document_id)
+      })
+
+      // Fetch document details in parallel
+      const promises = Array.from(documentIds).map(async (docId) => {
+        try {
+          const response = await documentsApi.get(docId)
+          names[docId] = response.data.file_name
+        } catch (error) {
+          console.error(`Failed to load document ${docId}:`, error)
+          names[docId] = "Document"
+        }
+      })
+
+      await Promise.all(promises)
+      setDocumentNames(names)
+    }
+
+    if (results.length > 0) {
+      loadDocumentNames()
+    }
+  }, [results])
 
   const loadResults = async () => {
     try {
@@ -101,11 +136,12 @@ export function MatchingResults({ workspaceId, refreshKey }: MatchingResultsProp
                 <div className="flex items-center gap-3">
                   <div>
                     <h3 className="text-sm font-semibold text-black">
-                      {result.matched_by === "po_number" ? "PO Match" : "Vendor Match"}
+                      {result.match_confidence?.vendor_name || 
+                       (result.matched_by === "po_number" ? "PO Match" : "Vendor Match")}
                     </h3>
                     {result.match_confidence?.vendor_name && (
                       <p className="text-xs text-[#666] mt-0.5">
-                        {result.match_confidence.vendor_name}
+                        {result.matched_by === "po_number" ? "Matched by PO Number" : "Matched by Vendor Name"}
                       </p>
                     )}
                   </div>
@@ -184,23 +220,65 @@ export function MatchingResults({ workspaceId, refreshKey }: MatchingResultsProp
                 </div>
               </div>
 
-              {/* Documents Badges - Compact */}
+              {/* Documents Badges with View Icons - Compact */}
               <div className="flex items-center gap-2 text-xs text-[#404040]">
                 <span>Documents:</span>
                 {result.po_document_id && (
-                  <Badge variant="outline" className="text-xs border-[#E5E5E5] text-black">
-                    PO
-                  </Badge>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="outline" className="text-xs border-[#E5E5E5] text-black">
+                      PO
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 text-[#404040] hover:text-black"
+                      onClick={() => setViewingDocument({
+                        id: result.po_document_id!,
+                        fileName: documentNames[result.po_document_id] || "PO Document"
+                      })}
+                      title="View PO Document"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 )}
                 {result.invoice_document_id && (
-                  <Badge variant="outline" className="text-xs border-[#E5E5E5] text-black">
-                    Invoice
-                  </Badge>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="outline" className="text-xs border-[#E5E5E5] text-black">
+                      Invoice
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 text-[#404040] hover:text-black"
+                      onClick={() => setViewingDocument({
+                        id: result.invoice_document_id!,
+                        fileName: documentNames[result.invoice_document_id] || "Invoice Document"
+                      })}
+                      title="View Invoice Document"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 )}
                 {result.delivery_note_document_id && (
-                  <Badge variant="outline" className="text-xs border-[#E5E5E5] text-black">
-                    DN
-                  </Badge>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="outline" className="text-xs border-[#E5E5E5] text-black">
+                      DN
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 text-[#404040] hover:text-black"
+                      onClick={() => setViewingDocument({
+                        id: result.delivery_note_document_id!,
+                        fileName: documentNames[result.delivery_note_document_id] || "Delivery Note Document"
+                      })}
+                      title="View Delivery Note Document"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 )}
               </div>
 
@@ -214,6 +292,15 @@ export function MatchingResults({ workspaceId, refreshKey }: MatchingResultsProp
           </Card>
         )
       })}
+
+      {/* PDF Viewer Modal */}
+      {viewingDocument && (
+        <PDFViewer
+          documentId={viewingDocument.id}
+          fileName={viewingDocument.fileName}
+          onClose={() => setViewingDocument(null)}
+        />
+      )}
     </div>
   )
 }

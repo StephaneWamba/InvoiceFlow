@@ -54,7 +54,11 @@ class StorageService:
         try:
             self.client.delete_object(Bucket=self.bucket, Key=file_path)
         except ClientError as e:
-            raise Exception(f"Failed to delete file: {str(e)}")
+            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+            # Don't raise error if file doesn't exist (already deleted)
+            if error_code != 'NoSuchKey':
+                raise Exception(f"Failed to delete file: {str(e)}")
+            # File doesn't exist - that's okay, consider it deleted
 
     def file_exists(self, file_path: str) -> bool:
         """Check if file exists in storage"""
@@ -66,5 +70,6 @@ class StorageService:
 
 
 storage_service = StorageService()
+
 
 
