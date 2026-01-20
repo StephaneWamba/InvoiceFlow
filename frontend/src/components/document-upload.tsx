@@ -43,18 +43,24 @@ export function DocumentUpload({ workspaceId, onUploadComplete }: DocumentUpload
 
   const detectDocumentType = (filename: string): 'purchase_order' | 'invoice' | 'delivery_note' => {
     const lower = filename.toLowerCase()
-    // Check for PO patterns first
-    if (lower.includes('po-') || lower.includes('purchase-order') || lower.includes('purchase_order') || 
-        lower.startsWith('po') || lower.includes(' purchase order')) {
+    // Check for PO patterns first (including _po, po_, po-, etc.)
+    if (lower.includes('po-') || lower.includes('_po') || lower.includes('po_') ||
+        lower.includes('purchase-order') || lower.includes('purchase_order') || 
+        lower.startsWith('po') || lower.endsWith('_po') || lower.includes(' purchase order')) {
       return 'purchase_order'
     }
-    // Check for Delivery Note patterns
-    if (lower.includes('delivery-note') || lower.includes('delivery_note') || lower.includes('dn-') ||
-        lower.startsWith('delivery') || lower.includes(' delivery note')) {
+    // Check for Delivery Note patterns (including _delivery-note, _dn, etc.)
+    if (lower.includes('delivery-note') || lower.includes('delivery_note') || 
+        lower.includes('_delivery-note') || lower.includes('_delivery_note') ||
+        lower.includes('dn-') || lower.includes('_dn') || lower.includes('dn_') ||
+        lower.startsWith('delivery') || lower.endsWith('_delivery-note') || 
+        lower.includes(' delivery note')) {
       return 'delivery_note'
     }
-    // Check for Invoice patterns
-    if (lower.includes('invoice') || lower.includes('inv-') || lower.startsWith('inv')) {
+    // Check for Invoice patterns (including _invoice, _inv, etc.)
+    if (lower.includes('invoice') || lower.includes('_invoice') || lower.includes('_inv') ||
+        lower.includes('inv-') || lower.includes('inv_') || lower.startsWith('inv') ||
+        lower.endsWith('_invoice')) {
       return 'invoice'
     }
     // Default to selected type if can't detect

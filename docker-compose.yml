@@ -40,8 +40,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8100:8000"
-    env_file:
-      - .env
     environment:
       DATABASE_URL: postgresql://invoiceflow:invoiceflow_dev@db:5432/invoiceflow
       AZURE_FORM_RECOGNIZER_ENDPOINT: ${AZURE_FORM_RECOGNIZER_ENDPOINT:-}
@@ -54,6 +52,7 @@ services:
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET: invoiceflow
       MINIO_USE_SSL: false
+      CORS_ORIGINS: "*"  # Override .env file - allow all origins in development
       ENVIRONMENT: development
       DEBUG: "true"
     volumes:

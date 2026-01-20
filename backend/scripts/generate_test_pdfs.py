@@ -1,13 +1,7 @@
 """
 Generate realistic test PDF sets with real-world company names.
-All documents are 1 page long and test all analysis features:
-- Multi-currency scenarios (USD, EUR, GBP)
-- Different tax rates (0%, 8%, 10%, 20% VAT)
-- Tax rate mismatches
-- Currency mismatches
-- Perfect matches
-- Large quantities
-- High-value items
+All documents are 1 page long and test all analysis features.
+Files are prefixed with enterprise name and total less than 10 files.
 """
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -19,13 +13,28 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT
 
 # Create realistic test sets directory
-# In Docker, use /app as base; locally, use script's parent
-if Path("/app").exists():
-    ASSETS_DIR = Path("/app") / "assets" / "realistic-test-sets"
+# Assets is mounted at /app/assets in Docker (from docker-compose.yml)
+import os
+if os.path.exists("/app") and os.path.isdir("/app"):
+    # Docker environment
+    ASSETS_DIR = Path("/app") / "assets" / "test-sets"
 else:
-    ASSETS_DIR = Path(__file__).parent.parent.parent / \
-        "assets" / "realistic-test-sets"
-ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+    # Local environment
+    script_dir = Path(__file__).parent  # scripts/
+    backend_dir = script_dir.parent     # backend/
+    project_root = backend_dir.parent  # project root
+    ASSETS_DIR = project_root / "assets" / "test-sets"
+
+# Create directory, handling case where parent might be a file
+try:
+    ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+except (FileExistsError, PermissionError) as e:
+    # If assets is a file, create in a different location
+    if os.path.exists("/app"):
+        ASSETS_DIR = Path("/app") / "test-sets"
+        ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+    else:
+        raise
 
 
 def generate_invoice(
@@ -320,82 +329,157 @@ def generate_po(
     doc.build(story)
 
 
+def generate_delivery_note(
+    dn_number: str, po_number: str, vendor: str, output_path: Path, items: list
+):
+    """Generate delivery note (no currency/tax, just quantities)."""
+    doc = SimpleDocTemplate(str(output_path), pagesize=letter)
+    story = []
+    styles = getSampleStyleSheet()
+
+    # Title
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#1a1a1a'),
+        spaceAfter=30,
+    )
+    story.append(Paragraph("DELIVERY NOTE", title_style))
+    story.append(Spacer(1, 0.2*inch))
+
+    # Header info
+    header_data = [
+        ['DN Number:', dn_number, 'Date:', datetime.now().strftime('%Y-%m-%d')],
+        ['PO Number:', po_number, 'Delivery Date:',
+            datetime.now().strftime('%Y-%m-%d')],
+    ]
+    header_table = Table(header_data, colWidths=[
+                         1.5*inch, 2*inch, 1.5*inch, 2*inch])
+    header_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.grey),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 0.3*inch))
+
+    # From and Ship To
+    from_para = Paragraph(
+        f'<b>{vendor}</b><br/>123 Business St<br/>New York, NY 10001<br/>USA',
+        styles['Normal']
+    )
+    ship_to_para = Paragraph(
+        '<b>ACME Corporation</b><br/>456 Customer Ave<br/>Los Angeles, CA 90001<br/>USA',
+        styles['Normal']
+    )
+    vendor_data = [
+        ['From:', from_para],
+        ['Ship To:', ship_to_para],
+    ]
+    vendor_table = Table(vendor_data, colWidths=[1*inch, 6*inch])
+    vendor_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.grey),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(vendor_table)
+    story.append(Spacer(1, 0.3*inch))
+
+    # Line items (no prices for delivery notes)
+    table_data = [['Item #', 'Description', 'Quantity']]
+    for item in items:
+        table_data.append([
+            item['item_num'],
+            item['description'],
+            str(item['qty']),
+        ])
+
+    items_table = Table(table_data, colWidths=[0.8*inch, 4.5*inch, 1.2*inch])
+    items_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a5568')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (2, 1), (2, -1), 'RIGHT'),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1),
+         [colors.white, colors.HexColor('#f7fafc')]),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(items_table)
+
+    doc.build(story)
+
+
+def get_enterprise_prefix(company_name: str) -> str:
+    """Convert company name to filename-safe prefix."""
+    # Remove common suffixes
+    prefix = company_name
+    for suffix in [" Inc", " Ltd", " Co", " Corp", " Corporation"]:
+        if prefix.endswith(suffix):
+            prefix = prefix[:-len(suffix)]
+            break
+    # Remove spaces and special chars, keep only alphanumeric
+    prefix = "".join(c for c in prefix if c.isalnum())
+    return prefix
+
+
 def main():
-    """Generate realistic test PDF sets with real-world company names."""
-    print("Generating realistic test PDF sets...")
+    """Generate realistic test PDF sets with enterprise-prefixed filenames (< 10 files)."""
+    print("Generating realistic test PDF sets with enterprise prefixes...")
     print(f"Output directory: {ASSETS_DIR}\n")
+    generated_files = []
 
-    # Set 1: Multi-Currency Scenarios (Perfect Matches)
-    print("[Set 1] Multi-Currency Scenarios - Perfect Matches")
-    currency_companies = [
-        ("USD", "$", 0.08, "Acme Corporation"),
-        ("EUR", "€", 0.20, "European Industries Ltd"),
-        ("GBP", "£", 0.20, "British Manufacturing Co"),
+    # Scenario 1: Perfect Match (PO + Invoice + Delivery Note)
+    print("[Scenario 1] Perfect Match - Complete Set (PO + Invoice + DN)")
+    company = "Acme Corporation"
+    prefix = get_enterprise_prefix(company)
+    po_number = "PO-2024-001"
+    invoice_number = "INV-2024-001"
+    dn_number = "DN-2024-001"
+
+    items = [
+        {'item_num': '001', 'description': 'Product A',
+            'qty': 10, 'price': 100.0, 'total': 1000.0},
+        {'item_num': '002', 'description': 'Product B',
+            'qty': 5, 'price': 200.0, 'total': 1000.0},
     ]
 
-    for idx, (currency, symbol, tax_rate, company) in enumerate(currency_companies, 1):
-        po_number = f"PO-2024-RT-{idx:03d}"
-        invoice_number = f"INV-2024-RT-{idx:03d}"
+    po_file = ASSETS_DIR / f"{prefix}_po.pdf"
+    generate_po(po_number, company, po_file, items, "USD", 0.08)
+    generated_files.append(po_file.name)
+    print(f"  [OK] Generated: {po_file.name}")
 
-        items = [
-            {'item_num': '001',
-                'description': f'Product A ({currency})', 'qty': 10, 'price': 100.0, 'total': 1000.0},
-            {'item_num': '002',
-                'description': f'Product B ({currency})', 'qty': 5, 'price': 200.0, 'total': 1000.0},
-        ]
+    invoice_file = ASSETS_DIR / f"{prefix}_invoice.pdf"
+    generate_invoice(invoice_number, po_number, company,
+                     invoice_file, items, "USD", 0.08)
+    generated_files.append(invoice_file.name)
+    print(f"  [OK] Generated: {invoice_file.name}")
 
-        generate_po(
-            po_number, company, ASSETS_DIR /
-            f"po-currency-{currency.lower()}.pdf",
-            items, currency, tax_rate
-        )
-        print(f"  [OK] Generated: po-currency-{currency.lower()}.pdf")
+    dn_file = ASSETS_DIR / f"{prefix}_delivery-note.pdf"
+    generate_delivery_note(dn_number, po_number, company, dn_file, items)
+    generated_files.append(dn_file.name)
+    print(f"  [OK] Generated: {dn_file.name}")
 
-        generate_invoice(
-            invoice_number, po_number, company, ASSETS_DIR /
-            f"invoice-currency-{currency.lower()}.pdf",
-            items, currency, tax_rate
-        )
-        print(f"  [OK] Generated: invoice-currency-{currency.lower()}.pdf")
-
-    # Set 2: Different Tax Rates (Perfect Matches)
-    print("\n[Set 2] Different Tax Rates - Perfect Matches")
-    tax_scenarios = [
-        (0.0, "NO_TAX", "Tech Solutions Inc"),
-        (0.08, "STANDARD", "Global Trading Partners"),
-        (0.10, "HIGH", "Premium Services Group"),
-        (0.20, "VAT", "International Commerce Ltd"),
-    ]
-
-    for idx, (tax_rate, label, company) in enumerate(tax_scenarios, 1):
-        po_number = f"PO-2024-RT-TAX-{idx:03d}"
-        invoice_number = f"INV-2024-RT-TAX-{idx:03d}"
-
-        items = [
-            {'item_num': '001', 'description': 'Standard Item',
-                'qty': 20, 'price': 50.0, 'total': 1000.0},
-            {'item_num': '002', 'description': 'Premium Item',
-                'qty': 10, 'price': 100.0, 'total': 1000.0},
-        ]
-
-        generate_po(
-            po_number, company, ASSETS_DIR / f"po-tax-{label.lower()}.pdf",
-            items, "USD", tax_rate
-        )
-        print(f"  [OK] Generated: po-tax-{label.lower()}.pdf")
-
-        generate_invoice(
-            invoice_number, po_number, company, ASSETS_DIR /
-            f"invoice-tax-{label.lower()}.pdf",
-            items, "USD", tax_rate
-        )
-        print(f"  [OK] Generated: invoice-tax-{label.lower()}.pdf")
-
-    # Set 3: Tax Rate Mismatch (Intentional Discrepancy)
-    print("\n[Set 3] Tax Rate Mismatch - Intentional Discrepancy")
-    po_number = "PO-2024-RT-TAX-MISMATCH"
-    invoice_number = "INV-2024-RT-TAX-MISMATCH"
+    # Scenario 2: Tax Rate Mismatch (PO + Invoice)
+    print("\n[Scenario 2] Tax Rate Mismatch - Intentional Discrepancy")
     company = "Metro Supply Chain Solutions"
+    prefix = get_enterprise_prefix(company)
+    po_number = "PO-2024-002"
+    invoice_number = "INV-2024-002"
 
     items = [
         {'item_num': '001', 'description': 'Item A',
@@ -404,106 +488,54 @@ def main():
             'qty': 8, 'price': 150.0, 'total': 1200.0},
     ]
 
-    generate_po(
-        po_number, company, ASSETS_DIR / "po-tax-mismatch.pdf",
-        items, "USD", 0.08
-    )
-    print(f"  [OK] Generated: po-tax-mismatch.pdf")
+    po_file = ASSETS_DIR / f"{prefix}_po.pdf"
+    generate_po(po_number, company, po_file, items, "USD", 0.08)
+    generated_files.append(po_file.name)
+    print(f"  [OK] Generated: {po_file.name}")
 
-    generate_invoice(
-        invoice_number, po_number, company, ASSETS_DIR / "invoice-tax-mismatch.pdf",
-        items, "USD", 0.10  # Different tax rate
-    )
-    print(f"  [OK] Generated: invoice-tax-mismatch.pdf")
+    invoice_file = ASSETS_DIR / f"{prefix}_invoice.pdf"
+    generate_invoice(invoice_number, po_number, company,
+                     invoice_file, items, "USD", 0.10)  # Different tax rate
+    generated_files.append(invoice_file.name)
+    print(f"  [OK] Generated: {invoice_file.name}")
 
-    # Set 4: Currency Mismatch (Intentional Discrepancy)
-    print("\n[Set 4] Currency Mismatch - Intentional Discrepancy")
-    po_number = "PO-2024-RT-CURRENCY-MISMATCH"
-    invoice_number = "INV-2024-RT-CURRENCY-MISMATCH"
+    # Scenario 3: Currency Mismatch (PO + Invoice)
+    print("\n[Scenario 3] Currency Mismatch - Intentional Discrepancy")
     company = "Worldwide Distribution Corp"
+    prefix = get_enterprise_prefix(company)
+    po_number = "PO-2024-003"
+    invoice_number = "INV-2024-003"
 
     items = [
         {'item_num': '001', 'description': 'International Item',
             'qty': 12, 'price': 100.0, 'total': 1200.0},
     ]
 
-    generate_po(
-        po_number, company, ASSETS_DIR / "po-currency-mismatch.pdf",
-        items, "USD", 0.08
-    )
-    print(f"  [OK] Generated: po-currency-mismatch.pdf")
+    po_file = ASSETS_DIR / f"{prefix}_po.pdf"
+    generate_po(po_number, company, po_file, items, "USD", 0.08)
+    generated_files.append(po_file.name)
+    print(f"  [OK] Generated: {po_file.name}")
 
-    generate_invoice(
-        invoice_number, po_number, company, ASSETS_DIR / "invoice-currency-mismatch.pdf",
-        items, "EUR", 0.20  # Different currency
-    )
-    print(f"  [OK] Generated: invoice-currency-mismatch.pdf")
-
-    # Set 5: Large Quantities (Perfect Match)
-    print("\n[Set 5] Large Quantities - Perfect Match")
-    po_number = "PO-2024-RT-LARGE"
-    invoice_number = "INV-2024-RT-LARGE"
-    company = "Bulk Materials Supply Co"
-
-    items = [
-        {'item_num': '001', 'description': 'Bulk Item A',
-            'qty': 1000, 'price': 5.0, 'total': 5000.0},
-        {'item_num': '002', 'description': 'Bulk Item B',
-            'qty': 500, 'price': 10.0, 'total': 5000.0},
-        {'item_num': '003', 'description': 'Bulk Item C',
-            'qty': 250, 'price': 20.0, 'total': 5000.0},
-    ]
-
-    generate_po(
-        po_number, company, ASSETS_DIR / "po-large-quantities.pdf",
-        items, "USD", 0.08
-    )
-    print(f"  [OK] Generated: po-large-quantities.pdf")
-
-    generate_invoice(
-        invoice_number, po_number, company, ASSETS_DIR / "invoice-large-quantities.pdf",
-        items, "USD", 0.08
-    )
-    print(f"  [OK] Generated: invoice-large-quantities.pdf")
-
-    # Set 6: High-Value Items (Perfect Match)
-    print("\n[Set 6] High-Value Items - Perfect Match")
-    po_number = "PO-2024-RT-HIGH-VALUE"
-    invoice_number = "INV-2024-RT-HIGH-VALUE"
-    company = "Luxury Equipment Suppliers"
-
-    items = [
-        {'item_num': '001', 'description': 'Premium Equipment',
-            'qty': 2, 'price': 50000.0, 'total': 100000.0},
-        {'item_num': '002', 'description': 'Professional Service',
-            'qty': 1, 'price': 25000.0, 'total': 25000.0},
-    ]
-
-    generate_po(
-        po_number, company, ASSETS_DIR / "po-high-value.pdf",
-        items, "USD", 0.08
-    )
-    print(f"  [OK] Generated: po-high-value.pdf")
-
-    generate_invoice(
-        invoice_number, po_number, company, ASSETS_DIR / "invoice-high-value.pdf",
-        items, "USD", 0.08
-    )
-    print(f"  [OK] Generated: invoice-high-value.pdf")
+    invoice_file = ASSETS_DIR / f"{prefix}_invoice.pdf"
+    generate_invoice(invoice_number, po_number, company,
+                     invoice_file, items, "EUR", 0.20)  # Different currency
+    generated_files.append(invoice_file.name)
+    print(f"  [OK] Generated: {invoice_file.name}")
 
     print("\n" + "="*60)
     print("All realistic test PDFs generated successfully!")
     print("="*60)
     print(f"\nLocation: {ASSETS_DIR}")
-    print(f"\nTotal files generated: {len(list(ASSETS_DIR.glob('*.pdf')))}")
+    print(f"\nTotal files generated: {len(generated_files)}")
+    print("\nGenerated files:")
+    for f in generated_files:
+        print(f"  - {f}")
     print("\nTest Coverage:")
-    print("  ✓ Multi-currency scenarios (USD, EUR, GBP)")
-    print("  ✓ Different tax rates (0%, 8%, 10%, 20%)")
+    print("  ✓ Perfect match (PO + Invoice + Delivery Note)")
     print("  ✓ Tax rate mismatch detection")
     print("  ✓ Currency mismatch detection")
-    print("  ✓ Large quantities")
-    print("  ✓ High-value items")
     print("  ✓ All documents are 1 page long")
+    print("  ✓ Enterprise-prefixed filenames")
     print("  ✓ Realistic company names (no fuzzy matching issues)")
 
 

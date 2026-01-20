@@ -234,7 +234,7 @@ export function MatchingResults({ workspaceId, refreshKey }: MatchingResultsProp
                       className="h-5 w-5 text-[#404040] hover:text-black"
                       onClick={() => setViewingDocument({
                         id: result.po_document_id!,
-                        fileName: documentNames[result.po_document_id] || "PO Document"
+                        fileName: documentNames[result.po_document_id!] || "PO Document"
                       })}
                       title="View PO Document"
                     >
@@ -253,7 +253,7 @@ export function MatchingResults({ workspaceId, refreshKey }: MatchingResultsProp
                       className="h-5 w-5 text-[#404040] hover:text-black"
                       onClick={() => setViewingDocument({
                         id: result.invoice_document_id!,
-                        fileName: documentNames[result.invoice_document_id] || "Invoice Document"
+                        fileName: documentNames[result.invoice_document_id!] || "Invoice Document"
                       })}
                       title="View Invoice Document"
                     >
@@ -272,7 +272,7 @@ export function MatchingResults({ workspaceId, refreshKey }: MatchingResultsProp
                       className="h-5 w-5 text-[#404040] hover:text-black"
                       onClick={() => setViewingDocument({
                         id: result.delivery_note_document_id!,
-                        fileName: documentNames[result.delivery_note_document_id] || "Delivery Note Document"
+                        fileName: documentNames[result.delivery_note_document_id!] || "Delivery Note Document"
                       })}
                       title="View Delivery Note Document"
                     >

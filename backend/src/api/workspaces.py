@@ -38,7 +38,7 @@ class WorkspaceResponse(BaseModel):
         from_attributes = True
 
 
-@router.post("/", response_model=WorkspaceResponse)
+@router.post("", response_model=WorkspaceResponse)
 async def create_workspace(workspace: WorkspaceCreate, db: Session = Depends(get_db)):
     """Create a new workspace"""
     db_workspace = Workspace(name=workspace.name, is_temporary=workspace.is_temporary)
@@ -48,7 +48,7 @@ async def create_workspace(workspace: WorkspaceCreate, db: Session = Depends(get
     return db_workspace
 
 
-@router.get("/", response_model=List[WorkspaceResponse])
+@router.get("", response_model=List[WorkspaceResponse])
 async def list_workspaces(db: Session = Depends(get_db)):
     """List all workspaces"""
     workspaces = db.query(Workspace).all()

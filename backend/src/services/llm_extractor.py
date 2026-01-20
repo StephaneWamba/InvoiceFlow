@@ -159,6 +159,48 @@ Return structured data with confidence score."""
             # Fallback to regex if LLM fails
             return None
 
+    def extract_currency(self, text_content: str) -> Optional[CurrencyExtraction]:
+        """
+        Extract currency code from text using LLM with structured output.
+
+        Args:
+            text_content: Text containing currency information
+
+        Returns:
+            CurrencyExtraction with currency_code, or None if LLM not available
+        """
+        if not self.enabled or not self.client:
+            return None
+
+        try:
+            prompt = f"""Extract the ISO 4217 currency code (e.g., USD, EUR, GBP) from the following financial document text.
+
+Text: {text_content}
+
+Instructions:
+1. Look for currency symbols like '$', '€', '£'.
+2. Look for currency codes like 'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'.
+3. Prioritize explicit codes over symbols if both are present.
+4. If multiple currencies are mentioned, extract the primary currency of the document (e.g., associated with total amounts).
+5. Return only the 3-letter ISO code (e.g., "USD", "EUR").
+
+Return structured data with confidence score and reasoning."""
+
+            response = self.client.chat.completions.create(
+                model=settings.OPENAI_MODEL,
+                response_model=CurrencyExtraction,
+                messages=[
+                    {"role": "system", "content": "You are a financial document extraction expert. Extract the primary currency code accurately."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.0,
+            )
+
+            return response
+
+        except Exception as e:
+            return None
+
     def extract_totals_section(self, paragraphs: list[str]) -> Optional[TotalsExtraction]:
         """
         Extract totals section (subtotal, tax, total) from multiple paragraphs.

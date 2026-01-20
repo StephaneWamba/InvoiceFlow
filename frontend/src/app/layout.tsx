@@ -7,6 +7,10 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'InvoiceFlow - Document Matching & Reconciliation',
   description: 'Automated document matching and three-way reconciliation platform',
+  icons: {
+    icon: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({

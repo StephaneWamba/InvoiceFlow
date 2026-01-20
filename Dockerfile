@@ -1,4 +1,5 @@
-# Multi-stage build for optimization
+# Railway deployment Dockerfile
+# Builds from backend directory context
 FROM python:3.11-slim AS builder
 
 # Install system dependencies for building
@@ -12,9 +13,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
-# Copy dependency files first (for better caching)
-# Build context is root, so copy from backend/
-COPY backend/pyproject.toml ./
+# Copy entire backend directory first
+COPY backend/ ./
 
 # Install dependencies (this layer will be cached if pyproject.toml doesn't change)
 RUN uv pip install --system --no-cache -e .
@@ -36,9 +36,8 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application code (this changes most frequently, so it's last)
-# Build context is root, so copy from backend/
-COPY backend/ .
+# Copy application code from builder (already copied in builder stage)
+COPY --from=builder /app/ .
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
@@ -53,6 +52,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Run application
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-
 
