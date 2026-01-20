@@ -21,7 +21,7 @@ Automated three-way reconciliation for Purchase Orders, Invoices, and Delivery N
 
 ## Screenshots
 
-![InvoiceFlow Dashboard](https://raw.githubusercontent.com/stephaneWamba/contractiq/main/frontend/public/dashboard.png)
+![InvoiceFlow Dashboard](./frontend/public/dashboard.png)
 
 The dashboard shows detailed discrepancy analysis, including tax rate mismatches, tax amount differences, and comprehensive matching results with confidence scores.
 
