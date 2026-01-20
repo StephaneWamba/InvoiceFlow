@@ -25,6 +25,10 @@ Automated three-way reconciliation for Purchase Orders, Invoices, and Delivery N
 
 The dashboard shows detailed discrepancy analysis, including tax rate mismatches, tax amount differences, and comprehensive matching results with confidence scores.
 
+![InvoiceFlow Analytics](./frontend/public/analytics.png)
+
+The analytics page provides insights into document processing metrics, matching statistics, and reconciliation trends.
+
 ## High-Level Architecture
 
 ```mermaid
