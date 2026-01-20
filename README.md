@@ -1,112 +1,162 @@
 # InvoiceFlow - Document Matching & Reconciliation Platform
 
-Automated document matching and three-way reconciliation for Purchase Orders, Invoices, and Delivery Notes.
+Automated three-way reconciliation for Purchase Orders, Invoices, and Delivery Notes using AI-powered document extraction and intelligent matching.
 
-## Features
+## Problem & Solution
 
-- **Document Processing**: Extract structured data from PO, Invoice, and Delivery Note PDFs using Azure Form Recognizer
-- **Automatic Matching**: Match documents by PO number or vendor name
-- **Line Item Comparison**: Detect quantity mismatches, price changes, missing items
-- **Three-Way Reconciliation**: Compare PO ↔ Invoice ↔ Delivery Note
-- **Report Generation**: Generate PDF reconciliation reports with discrepancy flags
+**Problem**: Manual reconciliation of purchase orders, invoices, and delivery notes is time-consuming, error-prone, and doesn't scale. Finance teams struggle to:
 
-## Tech Stack
+- Match documents across different formats and vendors
+- Detect discrepancies in quantities, prices, and tax calculations
+- Track currency mismatches and missing line items
+- Generate audit-ready reconciliation reports
 
-- **Backend**: FastAPI (Python), PostgreSQL, Azure Form Recognizer, PyMuPDF
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui
-- **Infrastructure**: Docker, MinIO (S3-compatible), PostgreSQL
-- **Package Manager**: `uv` (backend), `npm` (frontend)
+**Solution**: InvoiceFlow automates the entire reconciliation workflow:
 
-## Quick Start
+- **AI-Powered Extraction**: Uses Azure Form Recognizer and LLM to extract structured data from PDFs
+- **Intelligent Matching**: Matches documents by PO number or vendor name with fuzzy matching
+- **Discrepancy Detection**: Automatically flags quantity mismatches, price changes, currency differences, tax errors, and missing items
+- **Three-Way Reconciliation**: Compares PO ↔ Invoice ↔ Delivery Note in a single workflow
+- **Report Generation**: Produces PDF, JSON, and CSV reports with detailed discrepancy analysis
 
-### Prerequisites
+## Screenshots
 
-- Docker and Docker Compose
-- Azure Form Recognizer account (for document extraction)
+![InvoiceFlow Dashboard](frontend/public/dashboard.png)
 
-### Setup
+The dashboard shows detailed discrepancy analysis, including tax rate mismatches, tax amount differences, and comprehensive matching results with confidence scores.
 
-1. **Clone the repository**
+## High-Level Architecture
 
-   ```bash
-   git clone https://github.com/StephaneWamba/InvoiceFlow.git
-   cd InvoiceFlow
-   ```
+```mermaid
+graph TB
+    subgraph "Frontend"
+        UI[Next.js UI]
+        Components[React Components]
+    end
 
-2. **Configure environment**
+    subgraph "Backend API"
+        API[FastAPI REST API]
+        Services[Business Logic Services]
+        Extractors[Document Extractors]
+    end
 
-   ```bash
-   make setup
-   # Edit backend/.env with your Azure Form Recognizer credentials
-   ```
+    subgraph "AI Services"
+        Azure[Azure Form Recognizer]
+        LLM[OpenAI GPT-4]
+    end
 
-3. **Start services**
+    subgraph "Storage"
+        DB[(PostgreSQL)]
+        MinIO[MinIO S3]
+    end
 
-   ```bash
-   make build
-   make up
-   ```
+    UI --> API
+    API --> Services
+    Services --> Extractors
+    Extractors --> Azure
+    Extractors --> LLM
+    Services --> DB
+    Services --> MinIO
 
-4. **Run migrations**
-   ```bash
-   make migrate
-   ```
-
-### Ports
-
-- **Backend API**: 8100
-- **Frontend**: 3100
-- **PostgreSQL**: 5440
-- **MinIO API**: 9100
-- **MinIO Console**: 9101
-
-### Services
-
-- **Backend API**: http://localhost:8100
-- **Frontend**: http://localhost:3100
-- **MinIO Console**: http://localhost:9101 (minioadmin/minioadmin)
-- **PostgreSQL**: localhost:5440
-
-### Development
-
-```bash
-# View logs
-make logs
-
-# Stop services
-make down
-
-# Clean everything
-make clean
+    style UI fill:#3b82f6
+    style API fill:#10b981
+    style Azure fill:#f59e0b
+    style LLM fill:#8b5cf6
+    style DB fill:#ef4444
+    style MinIO fill:#06b6d4
 ```
 
 ## Project Structure
 
 ```
 InvoiceFlow/
-├── backend/          # FastAPI backend
+├── backend/             # FastAPI backend
 │   ├── src/
-│   │   ├── api/      # API routes
-│   │   ├── core/     # Config, database
-│   │   └── models/   # SQLAlchemy models
-│   ├── alembic/      # Database migrations
+│   │   ├── api/         # API endpoints
+│   │   ├── core/        # Config & DB
+│   │   ├── models/      # DB models
+│   │   ├── services/    # Business logic & extractors
+│   │   └── main.py      # App entry
+│   ├── alembic/         # Migrations
+│   ├── scripts/         # Utilities
 │   └── Dockerfile
-├── frontend/         # Next.js frontend
+│
+├── frontend/            # Next.js frontend
 │   ├── src/
-│   │   └── app/      # Next.js app directory
+│   │   ├── app/         # App router & pages
+│   │   ├── components/  # React components
+│   │   └── lib/         # Utilities
 │   └── Dockerfile
-├── private/          # Project documentation
-├── docker-compose.yml
-└── Makefile
+│
+├── docs/                # Documentation
+├── docker-compose.yml   # Docker orchestration
+└── README.md
 ```
+
+## Tech Stack
+
+| Layer                | Technology                    | Purpose                              |
+| -------------------- | ----------------------------- | ------------------------------------ |
+| **Frontend**         | Next.js 14, React, TypeScript | Modern React framework with SSR      |
+| **UI Framework**     | Tailwind CSS, shadcn/ui       | Utility-first CSS, component library |
+| **Backend**          | FastAPI, Python 3.11          | High-performance async API           |
+| **Database**         | PostgreSQL 16                 | Relational data storage              |
+| **Object Storage**   | MinIO                         | S3-compatible file storage           |
+| **AI/ML**            | Azure Form Recognizer         | Document OCR & extraction            |
+| **AI/ML**            | OpenAI GPT-4 (via Instructor) | LLM-enhanced extraction              |
+| **PDF Processing**   | PyMuPDF (fitz)                | PDF parsing & validation             |
+| **Matching**         | RapidFuzz                     | Fuzzy string matching                |
+| **Infrastructure**   | Docker, Docker Compose        | Containerization                     |
+| **Package Managers** | uv (Python), npm (Node)       | Dependency management                |
+
+## Quick Start
+
+### Prerequisites
+
+- Docker & Docker Compose
+- Azure Form Recognizer credentials
+- OpenAI API key (optional, for enhanced extraction)
+
+### Setup
+
+1. **Clone repository**
+
+   ```bash
+   git clone https://github.com/stephaneWamba/invoiceflow
+   cd InvoiceFlow
+   ```
+
+2. **Configure environment**
+
+   ```bash
+   cp backend/env.example .env
+   # Edit .env with your Azure and OpenAI credentials
+   ```
+
+3. **Start services**
+
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Run migrations**
+
+   ```bash
+   docker-compose exec backend alembic upgrade head
+   ```
+
+5. **Access application**
+   - Frontend: http://localhost:3100
+   - Backend API: http://localhost:8100
+   - MinIO Console: http://localhost:9101 (minioadmin/minioadmin)
 
 ## Documentation
 
-All project documentation is in the `private/` folder:
-
-- `document-matching-reconciliation.md` - Project specification
-- `tech-stack-recommendation.md` - Technology choices
-- `roadmap.md` - Development roadmap
+- **[User Guide](docs/USER_GUIDE.md)** - How to use InvoiceFlow
+- **[Architecture](docs/ARCHITECTURE.md)** - System design & components
+- **[API Reference](docs/API.md)** - REST API documentation
+- **[Frontend Guide](docs/FRONTEND.md)** - Frontend architecture
+- **[Local Setup](docs/LOCAL_SETUP.md)** - Development setup guide
 
 ## License
 
