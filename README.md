@@ -29,6 +29,10 @@ The dashboard shows detailed discrepancy analysis, including tax rate mismatches
 
 The analytics page provides insights into document processing metrics, matching statistics, and reconciliation trends.
 
+![Reconciliation Report](./frontend/public/reconciliation-report.png)
+
+The reconciliation report provides detailed three-way matching results with line-by-line comparison, discrepancy flags, and audit-ready documentation.
+
 ## High-Level Architecture
 
 ```mermaid
